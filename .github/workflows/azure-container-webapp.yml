@@ -39,7 +39,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, enterprise-runner]
 
     steps:
       - uses: actions/checkout@v4
@@ -64,10 +64,47 @@ jobs:
           tags: ghcr.io/${{ env.REPO }}:${{ github.sha }}
           file: ./Dockerfile
 
+      - name: Cache Python dependencies
+        uses: actions/cache@v2
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install backend dependencies
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install -r requirements.txt
+
+      - name: Cache Node.js dependencies
+        uses: actions/cache@v2
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm install
+
+      - name: Run backend tests
+        run: |
+          source .venv/bin/activate
+          pytest
+
+      - name: Run frontend tests
+        run: |
+          cd frontend
+          npm test
+
   deploy:
     permissions:
       contents: none
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, enterprise-runner]
     needs: build
     environment:
       name: 'Development'

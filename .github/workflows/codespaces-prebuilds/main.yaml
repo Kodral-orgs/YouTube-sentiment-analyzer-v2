@@ -48,6 +48,14 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
 
+      - name: Cache Node.js dependencies
+        uses: actions/cache@v2
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+
       - name: Install frontend dependencies
         run: |
           cd frontend

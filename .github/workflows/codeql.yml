@@ -27,7 +27,7 @@ jobs:
     #   - https://gh.io/supported-runners-and-hardware-resources
     #   - https://gh.io/using-larger-runners (GitHub.com only)
     # Consider using larger runners or machines with greater resources for possible analysis time improvements.
-    runs-on: ${{ (matrix.language == 'swift' && 'macos-latest') || 'ubuntu-latest' }}
+    runs-on: [self-hosted, linux, enterprise-runner]
     permissions:
       # required for all workflows
       security-events: write
@@ -93,6 +93,43 @@ jobs:
         echo '  make bootstrap'
         echo '  make release'
         exit 1
+
+    - name: Cache Python dependencies
+      uses: actions/cache@v2
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install backend dependencies
+      run: |
+        python -m venv .venv
+        source .venv/bin/activate
+        pip install -r requirements.txt
+
+    - name: Cache Node.js dependencies
+      uses: actions/cache@v2
+      with:
+        path: ~/.npm
+        key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-npm-
+
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        npm install
+
+    - name: Run backend tests
+      run: |
+        source .venv/bin/activate
+        pytest
+
+    - name: Run frontend tests
+      run: |
+        cd frontend
+        npm test
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3

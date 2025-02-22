@@ -1,12 +1,16 @@
-name: Codespac Workflow
+name: Codespaces Workflow
 
 on: [push, pull_request]
 
 jobs:
   build:
     # Using enterprise runner with proper labels
-    runs-on: Der
+    runs-on: [self-hosted, linux, enterprise-runner]
     
+    env:
+      PYTHON_VERSION: '3.9'
+      NODE_VERSION: '16'
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
@@ -14,16 +18,68 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.9'
+        python-version: ${{ env.PYTHON_VERSION }}
         cache: 'pip'
 
-    - name: Install dependencies
+    - name: Cache Python dependencies
+      uses: actions/cache@v2
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install backend dependencies
       run: |
         python -m venv .venv
         source .venv/bin/activate
         pip install -r requirements.txt
 
-    - name: Run tests
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Cache Node.js dependencies
+      uses: actions/cache@v2
+      with:
+        path: ~/.npm
+        key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-npm-
+
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        npm install
+
+    - name: Lint backend
+      run: |
+        source .venv/bin/activate
+        pylint backend
+
+    - name: Lint frontend
+      run: |
+        cd frontend
+        npm run lint
+
+    - name: Run backend tests
       run: |
         source .venv/bin/activate
         pytest
+
+    - name: Run frontend tests
+      run: |
+        cd frontend
+        npm test
+
+    - name: Build frontend
+      run: |
+        cd frontend
+        npm run build
+
+    - name: Deploy application
+      run: |
+        echo "Deploying application..."
+        # Add deployment steps here

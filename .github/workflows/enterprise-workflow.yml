@@ -8,12 +8,16 @@ on:
 
 jobs:
   build:
-    runs-on: [self-hosted, linux]
+    runs-on: [self-hosted, linux, enterprise-runner]
     
     strategy:
       matrix:
         python-version: ['3.9']
         node-version: ['lts/*']
+
+    env:
+      CACHE_KEY_PYTHON: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+      CACHE_KEY_NODE: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
 
     steps:
     - uses: actions/checkout@v3
@@ -24,23 +28,45 @@ jobs:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
 
+    - name: Cache Python dependencies
+      uses: actions/cache@v2
+      with:
+        path: ~/.cache/pip
+        key: ${{ env.CACHE_KEY_PYTHON }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
     - name: Set up Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v3
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
 
-    - name: Install dependencies
+    - name: Cache Node.js dependencies
+      uses: actions/cache@v2
+      with:
+        path: ~/.npm
+        key: ${{ env.CACHE_KEY_NODE }}
+        restore-keys: |
+          ${{ runner.os }}-npm-
+
+    - name: Install backend dependencies
       run: |
         python -m venv .venv
         source .venv/bin/activate
         pip install -r requirements.txt
+
+    - name: Install frontend dependencies
+      run: |
         npm ci
 
-    - name: Run tests
+    - name: Run backend tests
       run: |
         source .venv/bin/activate
         pytest
+
+    - name: Run frontend tests
+      run: |
         npm test
 
     - name: Build
