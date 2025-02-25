@@ -1,0 +1,2 @@
+job: Test
+  runs-on: [runs-on,runner=fast]
